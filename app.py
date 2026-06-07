@@ -33,7 +33,9 @@ except ImportError:
     _FPDF = False
 
 app = Flask(__name__)
-CORS(app, origins=os.environ.get("CORS_ORIGINS", "*"))
+_raw_origins = os.environ.get("CORS_ORIGINS", "*")
+_cors_origins = [o.strip() for o in _raw_origins.split(",")] if "," in _raw_origins else _raw_origins
+CORS(app, origins=_cors_origins)
 app.config["SECRET_KEY"] = config.SECRET_KEY
 app.config["MAX_CONTENT_LENGTH"] = config.MAX_CONTENT_LENGTH
 

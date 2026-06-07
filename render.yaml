@@ -9,7 +9,7 @@ services:
       - key: SECRET_KEY
         generateValue: true
       - key: CORS_ORIGINS
-        value: https://your-app.netlify.app
+        value: https://loanprediction3.netlify.app
       - key: DEBUG
         value: "False"
       - key: PORT

@@ -8,6 +8,6 @@ const CONFIG = {
     if (h === "localhost" || h === "127.0.0.1") {
       return "http://localhost:5000";
     }
-    return "https://YOUR-APP.onrender.com"; // <-- replace after deploying to Render
+    return "https://loan-predict-api.onrender.com";
   })(),
 };
