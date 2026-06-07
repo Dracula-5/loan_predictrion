@@ -1,0 +1,178 @@
+{% extends "base.html" %}
+{% block title %}Model Dashboard — LoanPredict AI{% endblock %}
+
+{% block content %}
+{% if not model_loaded %}
+<div class="alert alert-warning">
+  <i class="bi bi-exclamation-triangle me-2"></i>
+  No trained model found. Run <code>python train.py</code> to train the model first.
+</div>
+{% else %}
+
+<div class="d-flex align-items-center justify-content-between mb-4 flex-wrap gap-2">
+  <div>
+    <h4 class="fw-700 mb-0">Model Performance Dashboard</h4>
+    <p class="text-muted mb-0 small">Best model: <strong>{{ metrics.model_name }}</strong></p>
+  </div>
+  <a href="{{ url_for('api_metrics') }}" target="_blank" class="btn btn-outline-secondary btn-sm">
+    <i class="bi bi-code-slash me-1"></i>JSON API
+  </a>
+</div>
+
+<div class="row g-3 mb-4">
+  {% set kpis = [
+    ("ROC-AUC Score", metrics.roc_auc, "bi-activity", "primary"),
+    ("Accuracy", metrics.accuracy, "bi-check-circle", "success"),
+    ("F1 Score", metrics.f1, "bi-bullseye", "info"),
+    ("Precision", metrics.precision, "bi-filter-circle", "warning"),
+    ("Recall", metrics.recall, "bi-funnel", "secondary"),
+  ] %}
+  {% for label, val, icon, color in kpis %}
+  <div class="col-6 col-md-4 col-lg-2">
+    <div class="card shadow-sm h-100 border-top border-3 border-{{ color }}">
+      <div class="card-body p-3 text-center">
+        <i class="bi {{ icon }} fs-4 text-{{ color }} mb-2 d-block"></i>
+        <div class="kpi-value">{{ "%.3f"|format(val) }}</div>
+        <div class="kpi-label">{{ label }}</div>
+      </div>
+    </div>
+  </div>
+  {% endfor %}
+  <div class="col-6 col-md-4 col-lg-2">
+    <div class="card shadow-sm h-100 border-top border-3 border-dark">
+      <div class="card-body p-3 text-center">
+        <i class="bi bi-graph-up-arrow fs-4 text-dark mb-2 d-block"></i>
+        <div class="kpi-value">{{ "%.3f"|format(metrics.cv_auc_mean) }}</div>
+        <div class="kpi-label">CV AUC (mean)</div>
+        <div class="kpi-sub">± {{ "%.3f"|format(metrics.cv_auc_std) }}</div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="row g-4 mb-4">
+  {% if report_files.roc_curve %}
+  <div class="col-md-6 col-lg-4">
+    <div class="card shadow-sm">
+      <div class="card-header py-2 small fw-600">ROC Curve</div>
+      <div class="card-body p-2">
+        <img src="{{ url_for('serve_report', filename='roc_curve.png') }}" class="img-fluid rounded" alt="ROC Curve" />
+      </div>
+    </div>
+  </div>
+  {% endif %}
+  {% if report_files.pr_curve %}
+  <div class="col-md-6 col-lg-4">
+    <div class="card shadow-sm">
+      <div class="card-header py-2 small fw-600">Precision-Recall Curve</div>
+      <div class="card-body p-2">
+        <img src="{{ url_for('serve_report', filename='pr_curve.png') }}" class="img-fluid rounded" alt="PR Curve" />
+      </div>
+    </div>
+  </div>
+  {% endif %}
+  {% if report_files.confusion_matrix %}
+  <div class="col-md-6 col-lg-4">
+    <div class="card shadow-sm">
+      <div class="card-header py-2 small fw-600">Confusion Matrix</div>
+      <div class="card-body p-2">
+        <img src="{{ url_for('serve_report', filename='confusion_matrix.png') }}" class="img-fluid rounded" alt="Confusion Matrix" />
+      </div>
+    </div>
+  </div>
+  {% endif %}
+  {% if report_files.learning_curve %}
+  <div class="col-md-6 col-lg-4">
+    <div class="card shadow-sm">
+      <div class="card-header py-2 small fw-600">Learning Curve</div>
+      <div class="card-body p-2">
+        <img src="{{ url_for('serve_report', filename='learning_curve.png') }}" class="img-fluid rounded" alt="Learning Curve" />
+      </div>
+    </div>
+  </div>
+  {% endif %}
+  {% if report_files.feature_importance %}
+  <div class="col-md-6 col-lg-4">
+    <div class="card shadow-sm">
+      <div class="card-header py-2 small fw-600">Feature Importance</div>
+      <div class="card-body p-2">
+        <img src="{{ url_for('serve_report', filename='feature_importance.png') }}" class="img-fluid rounded" alt="Feature Importance" />
+      </div>
+    </div>
+  </div>
+  {% endif %}
+  {% if report_files.shap_summary %}
+  <div class="col-md-6 col-lg-4">
+    <div class="card shadow-sm">
+      <div class="card-header py-2 small fw-600">SHAP Summary (Beeswarm)</div>
+      <div class="card-body p-2">
+        <img src="{{ url_for('serve_report', filename='shap_summary.png') }}" class="img-fluid rounded" alt="SHAP Summary" />
+      </div>
+    </div>
+  </div>
+  {% endif %}
+  {% if report_files.shap_importance %}
+  <div class="col-md-6 col-lg-4">
+    <div class="card shadow-sm">
+      <div class="card-header py-2 small fw-600">SHAP Global Importance</div>
+      <div class="card-body p-2">
+        <img src="{{ url_for('serve_report', filename='shap_importance.png') }}" class="img-fluid rounded" alt="SHAP Importance" />
+      </div>
+    </div>
+  </div>
+  {% endif %}
+  {% if report_files.model_comparison %}
+  <div class="col-12">
+    <div class="card shadow-sm">
+      <div class="card-header py-2 small fw-600">All Models Comparison</div>
+      <div class="card-body p-2">
+        <img src="{{ url_for('serve_report', filename='model_comparison.png') }}" class="img-fluid rounded" alt="Model Comparison" />
+      </div>
+    </div>
+  </div>
+  {% endif %}
+</div>
+
+{% if model_comparison %}
+<div class="card shadow-sm">
+  <div class="card-header py-3">
+    <h6 class="mb-0 fw-600"><i class="bi bi-table me-2"></i>Detailed Model Comparison</h6>
+  </div>
+  <div class="card-body p-0">
+    <div class="table-responsive">
+      <table class="table table-hover table-striped mb-0">
+        <thead class="table-dark">
+          <tr>
+            <th>Model</th>
+            <th class="text-center">ROC-AUC</th>
+            <th class="text-center">Accuracy</th>
+            <th class="text-center">F1</th>
+            <th class="text-center">Precision</th>
+            <th class="text-center">Recall</th>
+            <th class="text-center">CV AUC</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for row in model_comparison %}
+          <tr class="{{ 'table-success fw-600' if row.is_best else '' }}">
+            <td>
+              {{ row.model }}
+              {% if row.is_best %}<span class="badge bg-success ms-2 small">Best</span>{% endif %}
+            </td>
+            <td class="text-center">{{ "%.4f"|format(row.roc_auc) }}</td>
+            <td class="text-center">{{ "%.4f"|format(row.accuracy) }}</td>
+            <td class="text-center">{{ "%.4f"|format(row.f1) }}</td>
+            <td class="text-center">{{ "%.4f"|format(row.precision) }}</td>
+            <td class="text-center">{{ "%.4f"|format(row.recall) }}</td>
+            <td class="text-center">{{ "%.4f"|format(row.cv_auc_mean) }} ± {{ "%.4f"|format(row.cv_auc_std) }}</td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+</div>
+{% endif %}
+
+{% endif %}
+{% endblock %}

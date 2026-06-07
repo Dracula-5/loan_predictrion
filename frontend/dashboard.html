@@ -1,0 +1,188 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Model Dashboard — LoanPredict AI</title>
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" />
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css" />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="css/style.css" />
+</head>
+<body>
+
+<nav class="navbar navbar-expand-lg navbar-dark fixed-top" id="mainNav">
+  <div class="container">
+    <a class="navbar-brand fw-600 d-flex align-items-center gap-2" href="index.html">
+      <i class="bi bi-bank2"></i> LoanPredict AI
+    </a>
+    <button class="navbar-toggler border-0" type="button" data-bs-toggle="collapse" data-bs-target="#nav">
+      <span class="navbar-toggler-icon"></span>
+    </button>
+    <div class="collapse navbar-collapse" id="nav">
+      <ul class="navbar-nav ms-auto gap-lg-1">
+        <li class="nav-item"><a class="nav-link" href="index.html"><i class="bi bi-calculator me-1"></i>Predict</a></li>
+        <li class="nav-item"><a class="nav-link active" href="dashboard.html"><i class="bi bi-bar-chart-line me-1"></i>Dashboard</a></li>
+        <li class="nav-item"><a class="nav-link" href="history.html"><i class="bi bi-clock-history me-1"></i>History</a></li>
+        <li class="nav-item"><a class="nav-link" href="batch.html"><i class="bi bi-file-earmark-spreadsheet me-1"></i>Batch</a></li>
+      </ul>
+    </div>
+  </div>
+</nav>
+
+<main class="main-content">
+  <div class="container py-4">
+    <div id="loadingState" class="text-center py-5">
+      <div class="spinner-border text-primary" style="width:3rem;height:3rem;"></div>
+      <p class="mt-3 text-muted">Loading dashboard...</p>
+    </div>
+    <div id="errorState" class="d-none">
+      <div class="alert alert-warning">
+        <i class="bi bi-exclamation-triangle me-2"></i>
+        <span id="errorMsg">Model not trained. Run <code>python train.py</code> first.</span>
+      </div>
+    </div>
+    <div id="dashContent" class="d-none">
+      <div class="d-flex align-items-center justify-content-between mb-4 flex-wrap gap-2">
+        <div>
+          <h4 class="fw-700 mb-0">Model Performance Dashboard</h4>
+          <p class="text-muted mb-0 small">Best model: <strong id="modelName"></strong></p>
+        </div>
+        <a id="apiLink" href="#" target="_blank" class="btn btn-outline-secondary btn-sm">
+          <i class="bi bi-code-slash me-1"></i>JSON API
+        </a>
+      </div>
+
+      <div class="row g-3 mb-4" id="kpiRow"></div>
+
+      <div class="row g-4 mb-4" id="plotGrid"></div>
+
+      <div class="card shadow-sm" id="comparisonCard" style="display:none">
+        <div class="card-header py-3">
+          <h6 class="mb-0 fw-600"><i class="bi bi-table me-2"></i>All Models Comparison</h6>
+        </div>
+        <div class="card-body p-0">
+          <div class="table-responsive">
+            <table class="table table-hover table-striped mb-0" id="compTable">
+              <thead class="table-dark">
+                <tr>
+                  <th>Model</th>
+                  <th class="text-center">ROC-AUC</th>
+                  <th class="text-center">Accuracy</th>
+                  <th class="text-center">F1</th>
+                  <th class="text-center">Precision</th>
+                  <th class="text-center">Recall</th>
+                  <th class="text-center">CV AUC</th>
+                </tr>
+              </thead>
+              <tbody id="compBody"></tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</main>
+
+<footer class="site-footer mt-auto">
+  <div class="container text-center">
+    <small class="text-muted">LoanPredict AI &mdash; <span id="yr"></span></small>
+  </div>
+</footer>
+
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+<script src="js/config.js"></script>
+<script src="js/api.js"></script>
+<script>
+document.getElementById("yr").textContent = new Date().getFullYear();
+document.getElementById("apiLink").href = CONFIG.API_URL + "/api/metrics";
+
+const kpiDefs = [
+  ["ROC-AUC Score",  "roc_auc",      "bi-activity",       "primary"],
+  ["Accuracy",       "accuracy",     "bi-check-circle",   "success"],
+  ["F1 Score",       "f1",           "bi-bullseye",       "info"],
+  ["Precision",      "precision",    "bi-filter-circle",  "warning"],
+  ["Recall",         "recall",       "bi-funnel",         "secondary"],
+  ["CV AUC (mean)",  "cv_auc_mean",  "bi-graph-up-arrow", "dark"],
+];
+
+const plotDefs = [
+  ["roc_curve",        "ROC Curve"],
+  ["pr_curve",         "Precision-Recall Curve"],
+  ["confusion_matrix", "Confusion Matrix"],
+  ["learning_curve",   "Learning Curve"],
+  ["feature_importance","Feature Importance"],
+  ["shap_summary",     "SHAP Summary (Beeswarm)"],
+  ["shap_importance",  "SHAP Global Importance"],
+  ["model_comparison", "All Models Comparison"],
+];
+
+(async function init() {
+  try {
+    const data = await API.getDashboard();
+    const m = data.metrics;
+    const rf = data.report_files || {};
+
+    document.getElementById("modelName").textContent = m.model_name || "Unknown";
+    document.getElementById("loadingState").classList.add("d-none");
+    document.getElementById("dashContent").classList.remove("d-none");
+
+    const kpiRow = document.getElementById("kpiRow");
+    kpiDefs.forEach(([label, key, icon, color]) => {
+      const val = m[key] != null ? m[key].toFixed(3) : "—";
+      const sub = key === "cv_auc_mean" && m.cv_auc_std != null
+        ? `<div class="kpi-sub">± ${m.cv_auc_std.toFixed(3)}</div>` : "";
+      kpiRow.insertAdjacentHTML("beforeend", `
+        <div class="col-6 col-md-4 col-lg-2">
+          <div class="card shadow-sm h-100 border-top border-3 border-${color}">
+            <div class="card-body p-3 text-center">
+              <i class="bi ${icon} fs-4 text-${color} mb-2 d-block"></i>
+              <div class="kpi-value">${val}</div>
+              <div class="kpi-label">${label}</div>
+              ${sub}
+            </div>
+          </div>
+        </div>`);
+    });
+
+    const plotGrid = document.getElementById("plotGrid");
+    plotDefs.forEach(([name, title]) => {
+      if (!rf[name]) return;
+      const colClass = name === "model_comparison" ? "col-12" : "col-md-6 col-lg-4";
+      plotGrid.insertAdjacentHTML("beforeend", `
+        <div class="${colClass}">
+          <div class="card shadow-sm">
+            <div class="card-header py-2 small fw-600">${title}</div>
+            <div class="card-body p-2">
+              <img src="${API.reportUrl(name)}" class="img-fluid rounded" alt="${title}" />
+            </div>
+          </div>
+        </div>`);
+    });
+
+    if (data.model_comparison && data.model_comparison.length) {
+      document.getElementById("comparisonCard").style.display = "";
+      const tbody = document.getElementById("compBody");
+      data.model_comparison.forEach(row => {
+        tbody.insertAdjacentHTML("beforeend", `
+          <tr class="${row.is_best?"table-success fw-600":""}">
+            <td>${row.model}${row.is_best?'<span class="badge bg-success ms-2 small">Best</span>':""}</td>
+            <td class="text-center">${row.roc_auc.toFixed(4)}</td>
+            <td class="text-center">${row.accuracy.toFixed(4)}</td>
+            <td class="text-center">${row.f1.toFixed(4)}</td>
+            <td class="text-center">${row.precision.toFixed(4)}</td>
+            <td class="text-center">${row.recall.toFixed(4)}</td>
+            <td class="text-center">${row.cv_auc_mean.toFixed(4)} ± ${row.cv_auc_std.toFixed(4)}</td>
+          </tr>`);
+      });
+    }
+
+  } catch (err) {
+    document.getElementById("loadingState").classList.add("d-none");
+    document.getElementById("errorState").classList.remove("d-none");
+    document.getElementById("errorMsg").textContent = err.message || "Failed to load dashboard.";
+  }
+})();
+</script>
+</body>
+</html>

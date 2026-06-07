@@ -1,0 +1,15 @@
+services:
+  - type: web
+    name: loan-predict-api
+    runtime: python
+    buildCommand: pip install -r requirements.txt
+    startCommand: gunicorn app:app --bind 0.0.0.0:$PORT --workers 2 --timeout 120
+    envVars:
+      - key: SECRET_KEY
+        generateValue: true
+      - key: CORS_ORIGINS
+        value: https://your-app.netlify.app
+      - key: DEBUG
+        value: "False"
+      - key: PORT
+        value: "10000"

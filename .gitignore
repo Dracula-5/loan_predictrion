@@ -1,0 +1,22 @@
+__pycache__/
+*.pyc
+*.pyo
+.env
+.venv/
+venv/
+logs/
+predictions/
+reports/
+.pytest_cache/
+*.egg-info/
+dist/
+build/
+
+# Claude Code session data
+.claude/
+.sixth/
+
+# Test-generated model artifacts (commit only real trained models)
+models/best_model.pkl
+models/feature_names.pkl
+models/shap_background.pkl

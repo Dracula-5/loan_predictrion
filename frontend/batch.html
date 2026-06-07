@@ -1,0 +1,243 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Batch Prediction — LoanPredict AI</title>
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" />
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css" />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="css/style.css" />
+</head>
+<body>
+
+<nav class="navbar navbar-expand-lg navbar-dark fixed-top" id="mainNav">
+  <div class="container">
+    <a class="navbar-brand fw-600 d-flex align-items-center gap-2" href="index.html">
+      <i class="bi bi-bank2"></i> LoanPredict AI
+    </a>
+    <button class="navbar-toggler border-0" type="button" data-bs-toggle="collapse" data-bs-target="#nav">
+      <span class="navbar-toggler-icon"></span>
+    </button>
+    <div class="collapse navbar-collapse" id="nav">
+      <ul class="navbar-nav ms-auto gap-lg-1">
+        <li class="nav-item"><a class="nav-link" href="index.html"><i class="bi bi-calculator me-1"></i>Predict</a></li>
+        <li class="nav-item"><a class="nav-link" href="dashboard.html"><i class="bi bi-bar-chart-line me-1"></i>Dashboard</a></li>
+        <li class="nav-item"><a class="nav-link" href="history.html"><i class="bi bi-clock-history me-1"></i>History</a></li>
+        <li class="nav-item"><a class="nav-link active" href="batch.html"><i class="bi bi-file-earmark-spreadsheet me-1"></i>Batch</a></li>
+      </ul>
+    </div>
+  </div>
+</nav>
+
+<main class="main-content">
+  <div class="container py-4">
+    <div id="toast-container"></div>
+    <div class="row g-4">
+      <div class="col-lg-5">
+        <div class="card shadow-sm">
+          <div class="card-header py-3">
+            <h5 class="mb-0 fw-600"><i class="bi bi-file-earmark-spreadsheet me-2"></i>Batch Prediction</h5>
+            <p class="text-muted small mb-0 mt-1">Upload a CSV to predict eligibility for multiple applicants</p>
+          </div>
+          <div class="card-body p-4">
+            <div class="upload-zone mb-3" id="uploadZone">
+              <i class="bi bi-cloud-upload fs-2 text-muted mb-2 d-block"></i>
+              <p class="mb-1 fw-500">Drop CSV here or click to browse</p>
+              <p class="text-muted small mb-3">Max file size: 10 MB</p>
+              <input type="file" id="fileInput" class="d-none" accept=".csv" />
+              <label for="fileInput" class="btn btn-outline-primary btn-sm">
+                <i class="bi bi-folder2-open me-1"></i>Browse File
+              </label>
+            </div>
+            <div id="fileNameDisplay" class="text-muted small mb-3"></div>
+            <button class="btn btn-primary w-100 fw-600" id="runBtn" disabled>
+              <span id="runText"><i class="bi bi-play-fill me-2"></i>Run Batch Prediction</span>
+              <span id="runSpinner" class="d-none">
+                <span class="spinner-border spinner-border-sm me-2"></span>Processing...
+              </span>
+            </button>
+            <hr class="my-4" />
+            <div class="d-flex align-items-center justify-content-between">
+              <div>
+                <p class="fw-500 mb-1">Template CSV</p>
+                <p class="text-muted small mb-0">Download a sample file with correct columns</p>
+              </div>
+              <button class="btn btn-outline-secondary btn-sm" onclick="downloadTemplate()">
+                <i class="bi bi-download me-1"></i>Template
+              </button>
+            </div>
+          </div>
+        </div>
+
+        <div class="card shadow-sm mt-3">
+          <div class="card-body p-4">
+            <h6 class="fw-600 mb-3">Required Columns</h6>
+            <div class="d-flex flex-wrap gap-2" id="colBadges"></div>
+            <p class="text-muted small mt-3 mb-0">Engineered features are computed automatically. Do not include Loan_ID or Loan_Status.</p>
+          </div>
+        </div>
+      </div>
+
+      <div class="col-lg-7">
+        <div id="placeholder" class="d-flex align-items-center h-100">
+          <div class="text-center w-100 py-5 text-muted">
+            <i class="bi bi-file-earmark-bar-graph fs-1 d-block mb-3 opacity-25"></i>
+            <p>Results will appear here after uploading a CSV file.</p>
+          </div>
+        </div>
+
+        <div id="resultsSection" class="d-none">
+          <div class="row g-3 mb-3" id="summaryCards"></div>
+          <div class="card shadow-sm">
+            <div class="card-header py-2 d-flex align-items-center justify-content-between">
+              <span class="fw-600 small">Prediction Results</span>
+              <button class="btn btn-outline-primary btn-xs" id="downloadCsvBtn" style="display:none" onclick="downloadCSV()">
+                <i class="bi bi-download me-1"></i>Download CSV
+              </button>
+            </div>
+            <div class="card-body p-0">
+              <div class="table-responsive" style="max-height:480px;overflow-y:auto">
+                <table class="table table-sm table-hover mb-0">
+                  <thead class="table-dark sticky-top" id="resHead"></thead>
+                  <tbody id="resBody"></tbody>
+                </table>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</main>
+
+<footer class="site-footer mt-auto">
+  <div class="container text-center">
+    <small class="text-muted">LoanPredict AI &mdash; <span id="yr"></span></small>
+  </div>
+</footer>
+
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+<script src="js/config.js"></script>
+<script src="js/api.js"></script>
+<script>
+document.getElementById("yr").textContent = new Date().getFullYear();
+
+let downloadUrl = null;
+
+function showToast(msg, err = false) {
+  const c = document.getElementById("toast-container");
+  const d = document.createElement("div");
+  d.className = "toast-msg" + (err ? " toast-error" : "");
+  d.textContent = msg;
+  c.appendChild(d);
+  setTimeout(() => d.remove(), 4000);
+}
+
+const fileInput = document.getElementById("fileInput");
+const uploadZone = document.getElementById("uploadZone");
+const runBtn = document.getElementById("runBtn");
+
+fileInput.addEventListener("change", () => {
+  if (fileInput.files.length) {
+    document.getElementById("fileNameDisplay").textContent = "Selected: " + fileInput.files[0].name;
+    uploadZone.classList.add("upload-zone-active");
+    runBtn.disabled = false;
+  }
+});
+
+uploadZone.addEventListener("dragover", e => { e.preventDefault(); uploadZone.classList.add("upload-zone-hover"); });
+uploadZone.addEventListener("dragleave", () => uploadZone.classList.remove("upload-zone-hover"));
+uploadZone.addEventListener("drop", e => {
+  e.preventDefault();
+  uploadZone.classList.remove("upload-zone-hover");
+  const f = e.dataTransfer.files;
+  if (f.length && f[0].name.endsWith(".csv")) {
+    fileInput.files = f;
+    document.getElementById("fileNameDisplay").textContent = "Selected: " + f[0].name;
+    uploadZone.classList.add("upload-zone-active");
+    runBtn.disabled = false;
+  }
+});
+
+runBtn.addEventListener("click", async () => {
+  if (!fileInput.files.length) return;
+  document.getElementById("runText").classList.add("d-none");
+  document.getElementById("runSpinner").classList.remove("d-none");
+  runBtn.disabled = true;
+
+  const fd = new FormData();
+  fd.append("file", fileInput.files[0]);
+
+  try {
+    const data = await API.batchPredict(fd);
+    renderResults(data);
+  } catch (err) {
+    showToast(err.message || "Batch prediction failed.", true);
+  } finally {
+    document.getElementById("runText").classList.remove("d-none");
+    document.getElementById("runSpinner").classList.add("d-none");
+    runBtn.disabled = false;
+  }
+});
+
+function renderResults(data) {
+  document.getElementById("placeholder").classList.add("d-none");
+  document.getElementById("resultsSection").classList.remove("d-none");
+
+  const s = data.summary;
+  document.getElementById("summaryCards").innerHTML = `
+    <div class="col-4"><div class="card text-center shadow-sm border-top border-3 border-secondary">
+      <div class="card-body py-3"><div class="kpi-value">${s.total}</div><div class="kpi-label">Total</div></div></div></div>
+    <div class="col-4"><div class="card text-center shadow-sm border-top border-3 border-success">
+      <div class="card-body py-3"><div class="kpi-value text-success">${s.approved}</div><div class="kpi-label">Approved</div></div></div></div>
+    <div class="col-4"><div class="card text-center shadow-sm border-top border-3 border-danger">
+      <div class="card-body py-3"><div class="kpi-value text-danger">${s.rejected}</div><div class="kpi-label">Rejected</div></div></div></div>`;
+
+  const rows = data.results;
+  if (!rows.length) return;
+
+  const cols = Object.keys(rows[0]);
+  document.getElementById("resHead").innerHTML = `<tr>${cols.map(c=>`<th class="small">${c}</th>`).join("")}</tr>`;
+  document.getElementById("resBody").innerHTML = rows.map(row =>
+    `<tr>${cols.map(c => {
+      const cls = c === "Prediction" ? `fw-600 ${row[c]==="Approved"?"text-success":"text-danger"}` : "small";
+      return `<td class="${cls}">${row[c]}</td>`;
+    }).join("")}</tr>`
+  ).join("");
+
+  if (data.download_url) {
+    downloadUrl = data.download_url;
+    document.getElementById("downloadCsvBtn").style.display = "";
+  }
+}
+
+function downloadCSV() {
+  if (downloadUrl) API.downloadBatch(downloadUrl.split("/").pop());
+}
+
+function downloadTemplate() {
+  const header = "Gender,Married,Dependents,Education,Self_Employed,ApplicantIncome,CoapplicantIncome,LoanAmount,Loan_Amount_Term,Credit_History,Property_Area";
+  const rows = [
+    "Male,Yes,1,Graduate,No,5000,1500,128,360,1,Semiurban",
+    "Female,No,0,Not Graduate,Yes,3000,0,80,120,0,Rural",
+    "Male,Yes,2,Graduate,No,7000,2000,200,360,1,Urban",
+  ];
+  const blob = new Blob([[header,...rows].join("\n")], {type:"text/csv"});
+  const a = document.createElement("a");
+  a.href = URL.createObjectURL(blob);
+  a.download = "batch_template.csv";
+  a.click();
+}
+
+const REQUIRED_COLS = [
+  "Gender","Married","Dependents","Education","Self_Employed",
+  "ApplicantIncome","CoapplicantIncome","LoanAmount",
+  "Loan_Amount_Term","Credit_History","Property_Area",
+];
+document.getElementById("colBadges").innerHTML = REQUIRED_COLS
+  .map(c => `<span class="badge bg-light text-dark border font-mono small">${c}</span>`)
+  .join("");
+</script>
+</body>
+</html>

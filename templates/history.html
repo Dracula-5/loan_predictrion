@@ -1,0 +1,106 @@
+{% extends "base.html" %}
+{% block title %}Prediction History — LoanPredict AI{% endblock %}
+
+{% block content %}
+<div class="d-flex align-items-center justify-content-between mb-4 flex-wrap gap-2">
+  <div>
+    <h4 class="fw-700 mb-0">Prediction History</h4>
+    <p class="text-muted mb-0 small">{{ records|length }} record{{ 's' if records|length != 1 else '' }} stored</p>
+  </div>
+  {% if records %}
+  <div class="d-flex gap-2">
+    <input type="text" id="historySearch" class="form-control form-control-sm" placeholder="Search..." style="width:200px" />
+    <form method="POST" action="{{ url_for('clear_history') }}" onsubmit="return confirm('Clear all prediction history?')">
+      <button type="submit" class="btn btn-outline-danger btn-sm">
+        <i class="bi bi-trash me-1"></i>Clear All
+      </button>
+    </form>
+  </div>
+  {% endif %}
+</div>
+
+{% if not records %}
+<div class="text-center py-5">
+  <i class="bi bi-inbox fs-1 text-muted d-block mb-3"></i>
+  <h5 class="text-muted">No predictions yet</h5>
+  <p class="text-muted small">Make your first prediction to see it here.</p>
+  <a href="{{ url_for('index') }}" class="btn btn-primary mt-2">
+    <i class="bi bi-calculator me-2"></i>Make a Prediction
+  </a>
+</div>
+{% else %}
+<div class="card shadow-sm">
+  <div class="card-body p-0">
+    <div class="table-responsive">
+      <table class="table table-hover mb-0" id="historyTable">
+        <thead class="table-light">
+          <tr>
+            <th>ID</th>
+            <th>Date &amp; Time</th>
+            <th>Gender</th>
+            <th>Income (₹)</th>
+            <th>Loan (₹K)</th>
+            <th>Credit</th>
+            <th class="text-center">Decision</th>
+            <th class="text-center">Probability</th>
+            <th class="text-center">Risk</th>
+            <th class="text-center">Actions</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for r in records %}
+          <tr>
+            <td class="font-mono small text-muted">#{{ r.id }}</td>
+            <td class="small text-nowrap">{{ r.timestamp[:19].replace("T", " ") }}</td>
+            <td class="small">{{ r.input.get("gender", "—") }}</td>
+            <td class="small">{{ r.input.get("applicant_income", "—") }}</td>
+            <td class="small">{{ r.input.get("loan_amount", "—") }}</td>
+            <td class="small text-center">
+              {% if r.input.get("credit_history") == "1" %}
+                <i class="bi bi-check-circle-fill text-success" title="Good"></i>
+              {% else %}
+                <i class="bi bi-x-circle-fill text-danger" title="Bad/None"></i>
+              {% endif %}
+            </td>
+            <td class="text-center">
+              <span class="badge {{ 'bg-success' if r.result == 'Approved' else 'bg-danger' }}">
+                {{ r.result }}
+              </span>
+            </td>
+            <td class="text-center small">{{ (r.approval_probability * 100)|round(1) }}%</td>
+            <td class="text-center small">
+              <span class="{{ 'text-success' if r.risk_score < 35 else ('text-warning' if r.risk_score < 65 else 'text-danger') }}">
+                {{ r.risk_score }}
+              </span>
+            </td>
+            <td class="text-center text-nowrap">
+              <a href="{{ url_for('result', pid=r.id) }}" class="btn btn-outline-primary btn-xs me-1" title="View">
+                <i class="bi bi-eye"></i>
+              </a>
+              <a href="{{ url_for('download_report', pid=r.id) }}" class="btn btn-outline-secondary btn-xs" title="Download PDF">
+                <i class="bi bi-file-earmark-pdf"></i>
+              </a>
+            </td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+</div>
+{% endif %}
+{% endblock %}
+
+{% block scripts %}
+<script>
+const searchInput = document.getElementById("historySearch");
+if (searchInput) {
+  searchInput.addEventListener("input", function () {
+    const term = this.value.toLowerCase();
+    document.querySelectorAll("#historyTable tbody tr").forEach(row => {
+      row.style.display = row.textContent.toLowerCase().includes(term) ? "" : "none";
+    });
+  });
+}
+</script>
+{% endblock %}

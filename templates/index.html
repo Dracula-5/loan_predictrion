@@ -1,0 +1,212 @@
+{% extends "base.html" %}
+{% block title %}Predict Loan Eligibility — LoanPredict AI{% endblock %}
+
+{% block content %}
+{% if not model_loaded %}
+<div class="alert alert-warning d-flex align-items-center gap-2">
+  <i class="bi bi-exclamation-triangle-fill fs-5"></i>
+  <div>No trained model found. Run <code>python train.py</code> to train the model before making predictions.</div>
+</div>
+{% endif %}
+
+<div class="row g-4">
+  <div class="col-lg-8">
+    <div class="card shadow-sm">
+      <div class="card-header py-3">
+        <h5 class="mb-0 fw-600"><i class="bi bi-person-vcard me-2"></i>Loan Application Form</h5>
+        <p class="text-muted small mb-0 mt-1">Enter the applicant details to assess loan eligibility</p>
+      </div>
+      <div class="card-body p-4">
+        <form id="predictionForm" method="POST" action="{{ url_for('predict') }}" novalidate>
+
+          <h6 class="section-label">Personal Information</h6>
+          <div class="row g-3 mb-4">
+            <div class="col-md-4">
+              <label class="form-label">Gender <span class="text-danger">*</span></label>
+              <select name="gender" class="form-select" required>
+                <option value="" disabled selected>Select</option>
+                <option value="Male">Male</option>
+                <option value="Female">Female</option>
+              </select>
+            </div>
+            <div class="col-md-4">
+              <label class="form-label">Married <span class="text-danger">*</span></label>
+              <select name="married" class="form-select" required>
+                <option value="" disabled selected>Select</option>
+                <option value="Yes">Yes</option>
+                <option value="No">No</option>
+              </select>
+            </div>
+            <div class="col-md-4">
+              <label class="form-label">Dependents <span class="text-danger">*</span></label>
+              <select name="dependents" class="form-select" required>
+                <option value="" disabled selected>Select</option>
+                <option value="0">0</option>
+                <option value="1">1</option>
+                <option value="2">2</option>
+                <option value="3">3+</option>
+              </select>
+            </div>
+          </div>
+
+          <h6 class="section-label">Employment Details</h6>
+          <div class="row g-3 mb-4">
+            <div class="col-md-6">
+              <label class="form-label">Education <span class="text-danger">*</span></label>
+              <select name="education" class="form-select" required>
+                <option value="" disabled selected>Select</option>
+                <option value="Graduate">Graduate</option>
+                <option value="Not Graduate">Not Graduate</option>
+              </select>
+            </div>
+            <div class="col-md-6">
+              <label class="form-label">Self Employed <span class="text-danger">*</span></label>
+              <select name="self_employed" class="form-select" required>
+                <option value="" disabled selected>Select</option>
+                <option value="Yes">Yes</option>
+                <option value="No">No</option>
+              </select>
+            </div>
+            <div class="col-md-6">
+              <label class="form-label">Applicant Monthly Income (₹) <span class="text-danger">*</span></label>
+              <div class="input-group">
+                <span class="input-group-text"><i class="bi bi-currency-rupee"></i></span>
+                <input type="number" name="applicant_income" class="form-control" min="0" step="1"
+                       placeholder="e.g. 5000" required />
+              </div>
+            </div>
+            <div class="col-md-6">
+              <label class="form-label">Coapplicant Monthly Income (₹)</label>
+              <div class="input-group">
+                <span class="input-group-text"><i class="bi bi-currency-rupee"></i></span>
+                <input type="number" name="coapplicant_income" class="form-control" min="0" step="1"
+                       value="0" placeholder="e.g. 2000" />
+              </div>
+            </div>
+          </div>
+
+          <h6 class="section-label">Loan Details</h6>
+          <div class="row g-3 mb-4">
+            <div class="col-md-4">
+              <label class="form-label">Loan Amount (₹ thousands) <span class="text-danger">*</span></label>
+              <div class="input-group">
+                <input type="number" name="loan_amount" class="form-control" min="1" step="1"
+                       placeholder="e.g. 150" required />
+                <span class="input-group-text">K</span>
+              </div>
+            </div>
+            <div class="col-md-4">
+              <label class="form-label">Loan Term (months) <span class="text-danger">*</span></label>
+              <select name="loan_amount_term" class="form-select" required>
+                <option value="" disabled selected>Select</option>
+                <option value="360">360 (30 years)</option>
+                <option value="300">300 (25 years)</option>
+                <option value="240">240 (20 years)</option>
+                <option value="180">180 (15 years)</option>
+                <option value="120">120 (10 years)</option>
+                <option value="84">84 (7 years)</option>
+                <option value="60">60 (5 years)</option>
+                <option value="36">36 (3 years)</option>
+                <option value="12">12 (1 year)</option>
+              </select>
+            </div>
+            <div class="col-md-4">
+              <label class="form-label">Credit History <span class="text-danger">*</span></label>
+              <select name="credit_history" class="form-select" required>
+                <option value="" disabled selected>Select</option>
+                <option value="1">Good (1)</option>
+                <option value="0">Bad / None (0)</option>
+              </select>
+            </div>
+            <div class="col-md-6">
+              <label class="form-label">Property Area <span class="text-danger">*</span></label>
+              <select name="property_area" class="form-select" required>
+                <option value="" disabled selected>Select</option>
+                <option value="Urban">Urban</option>
+                <option value="Semiurban">Semiurban</option>
+                <option value="Rural">Rural</option>
+              </select>
+            </div>
+          </div>
+
+          <div class="d-flex gap-3 mt-2">
+            <button type="submit" class="btn btn-primary px-5 py-2 fw-600" {% if not model_loaded %}disabled{% endif %}>
+              <i class="bi bi-search me-2"></i>Assess Eligibility
+            </button>
+            <button type="reset" class="btn btn-outline-secondary px-4">
+              <i class="bi bi-arrow-counterclockwise me-2"></i>Reset
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>
+  </div>
+
+  <div class="col-lg-4">
+    <div class="card shadow-sm mb-3">
+      <div class="card-body p-4">
+        <h6 class="fw-600 mb-3"><i class="bi bi-info-circle text-primary me-2"></i>How It Works</h6>
+        <ol class="list-group list-group-numbered list-group-flush small text-muted">
+          <li class="list-group-item border-0 px-0 py-2">Fill in all applicant and loan details</li>
+          <li class="list-group-item border-0 px-0 py-2">Our ML model analyzes 16 features including engineered ones</li>
+          <li class="list-group-item border-0 px-0 py-2">Get instant approval probability and risk score</li>
+          <li class="list-group-item border-0 px-0 py-2">Review SHAP-based explanations for the decision</li>
+          <li class="list-group-item border-0 px-0 py-2">Download a PDF report of the assessment</li>
+        </ol>
+      </div>
+    </div>
+
+    <div class="card shadow-sm mb-3">
+      <div class="card-body p-4">
+        <h6 class="fw-600 mb-3"><i class="bi bi-lightning text-warning me-2"></i>Quick Fill — Sample Cases</h6>
+        <div class="d-grid gap-2">
+          <button type="button" class="btn btn-outline-success btn-sm" onclick="fillSample('good')">
+            Low-Risk Applicant
+          </button>
+          <button type="button" class="btn btn-outline-danger btn-sm" onclick="fillSample('risky')">
+            High-Risk Applicant
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <div class="card shadow-sm border-0 bg-light">
+      <div class="card-body p-4">
+        <p class="small text-muted mb-0">
+          <i class="bi bi-shield-check me-1"></i>
+          <strong>Note:</strong> This tool uses a machine learning model trained on historical loan data.
+          Results are indicative and not a substitute for formal credit assessment.
+        </p>
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+const samples = {
+  good: {
+    gender: "Male", married: "Yes", dependents: "1", education: "Graduate",
+    self_employed: "No", applicant_income: "8000", coapplicant_income: "3000",
+    loan_amount: "120", loan_amount_term: "360", credit_history: "1",
+    property_area: "Semiurban"
+  },
+  risky: {
+    gender: "Female", married: "No", dependents: "3", education: "Not Graduate",
+    self_employed: "Yes", applicant_income: "2500", coapplicant_income: "0",
+    loan_amount: "200", loan_amount_term: "360", credit_history: "0",
+    property_area: "Rural"
+  }
+};
+
+function fillSample(type) {
+  const s = samples[type];
+  const form = document.getElementById("predictionForm");
+  Object.entries(s).forEach(([key, val]) => {
+    const el = form.querySelector(`[name="${key}"]`);
+    if (el) el.value = val;
+  });
+}
+</script>
+{% endblock %}
