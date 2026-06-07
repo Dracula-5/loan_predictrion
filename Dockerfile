@@ -9,6 +9,8 @@ COPY . .
 
 RUN mkdir -p models reports predictions logs
 
+RUN python train.py
+
 EXPOSE 10000
 
-CMD gunicorn app:app --bind 0.0.0.0:${PORT:-10000} --workers 2 --timeout 120 --log-level info
+CMD gunicorn app:app --bind 0.0.0.0:${PORT:-10000} --workers 1 --threads 4 --timeout 120 --log-level info
