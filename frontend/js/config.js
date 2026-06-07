@@ -8,6 +8,6 @@ const CONFIG = {
     if (h === "localhost" || h === "127.0.0.1") {
       return "http://localhost:5000";
     }
-    return "https://loan-predict-api.onrender.com";
+    return "https://loan-predictrion.onrender.com";
   })(),
 };

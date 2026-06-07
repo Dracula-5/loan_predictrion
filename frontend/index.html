@@ -33,6 +33,10 @@
 <main class="main-content">
   <div class="container py-4">
     <div id="alertBox"></div>
+    <div id="apiStatusBar" class="alert alert-warning d-flex align-items-center gap-2 py-2 mb-3" role="alert">
+      <span class="spinner-border spinner-border-sm flex-shrink-0"></span>
+      <span id="apiStatusMsg">Connecting to API at <strong id="apiUrlDisplay"></strong>…</span>
+    </div>
 
     <div class="row g-4">
       <div class="col-lg-8">
@@ -213,21 +217,65 @@
 <script src="js/api.js"></script>
 <script>
 document.getElementById("yr").textContent = new Date().getFullYear();
+document.getElementById("apiUrlDisplay").textContent = CONFIG.API_URL;
 
-// Wake the Render free-tier instance as soon as the page opens
-API.warmUp();
+// ── API status check (also warms up the Render instance) ──────────────
+const statusBar = document.getElementById("apiStatusBar");
+const statusMsg  = document.getElementById("apiStatusMsg");
 
+(async function checkApi() {
+  try {
+    const controller = new AbortController();
+    const t = setTimeout(() => controller.abort(), 70000);
+    const r = await fetch(CONFIG.API_URL + "/api/health", { signal: controller.signal });
+    clearTimeout(t);
+    if (r.ok) {
+      const d = await r.json();
+      if (!d.model_loaded) {
+        statusBar.className = "alert alert-warning d-flex align-items-center gap-2 py-2 mb-3";
+        statusMsg.innerHTML = `<i class="bi bi-exclamation-triangle-fill"></i>
+          API is reachable but <strong>no model is loaded</strong>.
+          Go to your Render dashboard → Build &amp; Deploy → set Build Command to
+          <code>pip install -r requirements.txt &amp;&amp; python train.py</code>
+          then click <strong>Manual Deploy</strong>.`;
+      } else {
+        statusBar.className = "alert alert-success d-flex align-items-center gap-2 py-2 mb-3";
+        statusMsg.innerHTML = `<i class="bi bi-check-circle-fill"></i>
+          API connected &mdash; model: <strong>${d.model}</strong>`;
+      }
+    } else {
+      throw new Error(`HTTP ${r.status} from ${CONFIG.API_URL}`);
+    }
+  } catch (e) {
+    statusBar.className = "alert alert-danger d-flex align-items-center gap-2 py-2 mb-3";
+    const hint = e.name === "AbortError"
+      ? "Timed out waiting for server. It may still be starting — wait 30 s then refresh."
+      : `Could not reach <strong>${CONFIG.API_URL}</strong>. Check your Render service URL in js/config.js.`;
+    statusMsg.innerHTML = `<i class="bi bi-exclamation-circle-fill"></i> ${hint}<br>
+      <small class="text-muted">Error: ${e.message}</small>`;
+  }
+})();
+
+// ── Sample data ────────────────────────────────────────────────────────
 const samples = {
-  good: { gender:"Male", married:"Yes", dependents:"1", education:"Graduate", self_employed:"No",
-          applicant_income:"8000", coapplicant_income:"3000", loan_amount:"120", loan_amount_term:"360", credit_history:"1", property_area:"Semiurban" },
-  risky: { gender:"Female", married:"No", dependents:"3", education:"Not Graduate", self_employed:"Yes",
-           applicant_income:"2500", coapplicant_income:"0", loan_amount:"200", loan_amount_term:"360", credit_history:"0", property_area:"Rural" }
+  good:  { gender:"Male",   married:"Yes", dependents:"1", education:"Graduate",     self_employed:"No",
+           applicant_income:"8000", coapplicant_income:"3000", loan_amount:"120", loan_amount_term:"360", credit_history:"1", property_area:"Semiurban" },
+  risky: { gender:"Female", married:"No",  dependents:"3", education:"Not Graduate", self_employed:"Yes",
+           applicant_income:"2500", coapplicant_income:"0",    loan_amount:"200", loan_amount_term:"360", credit_history:"0", property_area:"Rural"     }
 };
 
 function fillSample(type) {
   const s = samples[type];
   const form = document.getElementById("predictionForm");
   Object.entries(s).forEach(([k, v]) => { const el = form.querySelector(`[name="${k}"]`); if (el) el.value = v; });
+}
+
+function showError(msg) {
+  document.getElementById("alertBox").innerHTML =
+    `<div class="alert alert-danger alert-dismissible mb-3" role="alert">
+       <i class="bi bi-exclamation-circle me-2"></i>${msg}
+       <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+     </div>`;
 }
 
 function showToast(msg, isError = false) {
@@ -239,22 +287,23 @@ function showToast(msg, isError = false) {
   setTimeout(() => d.remove(), 4000);
 }
 
+// ── Form submission ────────────────────────────────────────────────────
 document.getElementById("predictionForm").addEventListener("submit", async function (e) {
   e.preventDefault();
   if (!this.checkValidity()) { this.classList.add("was-validated"); return; }
 
-  const btn = document.getElementById("submitBtn");
+  document.getElementById("alertBox").innerHTML = "";
+  const btn       = document.getElementById("submitBtn");
   const spinnerEl = document.getElementById("submitSpinner");
   document.getElementById("submitText").classList.add("d-none");
   spinnerEl.classList.remove("d-none");
-  spinnerEl.innerHTML = '<span class="spinner-border spinner-border-sm me-2"></span>Analysing...';
+  spinnerEl.innerHTML = '<span class="spinner-border spinner-border-sm me-2"></span>Analysing…';
   btn.disabled = true;
 
-  // After 4 s with no response, tell the user the server is waking up
   const slowTimer = setTimeout(() => {
     spinnerEl.innerHTML =
-      '<span class="spinner-border spinner-border-sm me-2"></span>Server waking up — please wait (~30s)…';
-  }, 4000);
+      '<span class="spinner-border spinner-border-sm me-2"></span>Server waking up — please wait…';
+  }, 5000);
 
   const fd = new FormData(this);
   const payload = {};
@@ -268,7 +317,7 @@ document.getElementById("predictionForm").addEventListener("submit", async funct
     const result = await API.predict(payload);
     window.location.href = `result.html?id=${result.id}`;
   } catch (err) {
-    showToast(err.message || "Prediction failed. Please try again.", true);
+    showError(err.message || "Prediction failed. Please try again.");
     document.getElementById("submitText").classList.remove("d-none");
     spinnerEl.classList.add("d-none");
     btn.disabled = false;
