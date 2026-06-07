@@ -214,6 +214,9 @@
 <script>
 document.getElementById("yr").textContent = new Date().getFullYear();
 
+// Wake the Render free-tier instance as soon as the page opens
+API.warmUp();
+
 const samples = {
   good: { gender:"Male", married:"Yes", dependents:"1", education:"Graduate", self_employed:"No",
           applicant_income:"8000", coapplicant_income:"3000", loan_amount:"120", loan_amount_term:"360", credit_history:"1", property_area:"Semiurban" },
@@ -241,9 +244,17 @@ document.getElementById("predictionForm").addEventListener("submit", async funct
   if (!this.checkValidity()) { this.classList.add("was-validated"); return; }
 
   const btn = document.getElementById("submitBtn");
+  const spinnerEl = document.getElementById("submitSpinner");
   document.getElementById("submitText").classList.add("d-none");
-  document.getElementById("submitSpinner").classList.remove("d-none");
+  spinnerEl.classList.remove("d-none");
+  spinnerEl.innerHTML = '<span class="spinner-border spinner-border-sm me-2"></span>Analysing...';
   btn.disabled = true;
+
+  // After 4 s with no response, tell the user the server is waking up
+  const slowTimer = setTimeout(() => {
+    spinnerEl.innerHTML =
+      '<span class="spinner-border spinner-border-sm me-2"></span>Server waking up — please wait (~30s)…';
+  }, 4000);
 
   const fd = new FormData(this);
   const payload = {};
@@ -257,10 +268,12 @@ document.getElementById("predictionForm").addEventListener("submit", async funct
     const result = await API.predict(payload);
     window.location.href = `result.html?id=${result.id}`;
   } catch (err) {
-    showToast(err.message || "Prediction failed. Check if the API is running.", true);
+    showToast(err.message || "Prediction failed. Please try again.", true);
     document.getElementById("submitText").classList.remove("d-none");
-    document.getElementById("submitSpinner").classList.add("d-none");
+    spinnerEl.classList.add("d-none");
     btn.disabled = false;
+  } finally {
+    clearTimeout(slowTimer);
   }
 });
 

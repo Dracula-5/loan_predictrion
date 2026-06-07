@@ -163,6 +163,7 @@
 <script src="js/api.js"></script>
 <script>
 document.getElementById("yr").textContent = new Date().getFullYear();
+API.warmUp();
 
 let currentPid = null;
 
@@ -285,11 +286,19 @@ function downloadPDF() {
 (async function init() {
   const pid = new URLSearchParams(window.location.search).get("id");
   if (!pid) { showError("No prediction ID provided. Please make a prediction first."); return; }
+
+  const slowTimer = setTimeout(() => {
+    document.querySelector("#loadingState p").textContent =
+      "Server is waking up — please wait (~30s)…";
+  }, 4000);
+
   try {
     const record = await API.getResult(pid);
     renderResult(record);
   } catch (err) {
     showError(err.message || "Failed to load prediction result.");
+  } finally {
+    clearTimeout(slowTimer);
   }
 })();
 </script>

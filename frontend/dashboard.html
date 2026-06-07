@@ -96,6 +96,7 @@
 <script>
 document.getElementById("yr").textContent = new Date().getFullYear();
 document.getElementById("apiLink").href = CONFIG.API_URL + "/api/metrics";
+API.warmUp();
 
 const kpiDefs = [
   ["ROC-AUC Score",  "roc_auc",      "bi-activity",       "primary"],
@@ -118,6 +119,10 @@ const plotDefs = [
 ];
 
 (async function init() {
+  const slowTimer = setTimeout(() => {
+    document.querySelector("#loadingState p").textContent =
+      "Server is waking up — please wait (~30s)…";
+  }, 4000);
   try {
     const data = await API.getDashboard();
     const m = data.metrics;
@@ -181,6 +186,8 @@ const plotDefs = [
     document.getElementById("loadingState").classList.add("d-none");
     document.getElementById("errorState").classList.remove("d-none");
     document.getElementById("errorMsg").textContent = err.message || "Failed to load dashboard.";
+  } finally {
+    clearTimeout(slowTimer);
   }
 })();
 </script>

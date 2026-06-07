@@ -85,6 +85,7 @@
 <script src="js/api.js"></script>
 <script>
 document.getElementById("yr").textContent = new Date().getFullYear();
+API.warmUp();
 
 function showToast(msg, err = false) {
   const c = document.getElementById("toast-container");

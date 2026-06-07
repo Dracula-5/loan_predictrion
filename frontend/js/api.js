@@ -2,12 +2,26 @@
 
 const API = {
   async _fetch(endpoint, options = {}) {
-    const response = await fetch(CONFIG.API_URL + endpoint, options);
-    if (!response.ok) {
-      const err = await response.json().catch(() => ({ error: `HTTP ${response.status}` }));
-      throw new Error(err.error || err.message || `HTTP ${response.status}`);
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 90000);
+    try {
+      const response = await fetch(CONFIG.API_URL + endpoint, {
+        ...options,
+        signal: controller.signal,
+      });
+      if (!response.ok) {
+        const err = await response.json().catch(() => ({ error: `HTTP ${response.status}` }));
+        throw new Error(err.error || err.message || `HTTP ${response.status}`);
+      }
+      return response;
+    } catch (err) {
+      if (err.name === "AbortError") {
+        throw new Error("Request timed out. The server may still be starting up — please try again in 30 seconds.");
+      }
+      throw err;
+    } finally {
+      clearTimeout(timeoutId);
     }
-    return response;
   },
 
   async json(endpoint, options = {}) {
@@ -62,5 +76,10 @@ const API = {
 
   reportUrl(name) {
     return `${CONFIG.API_URL}/api/reports/${name}.png`;
+  },
+
+  /** Silent health ping — call on page load to wake the Render instance. */
+  warmUp() {
+    fetch(CONFIG.API_URL + "/api/health", { signal: AbortSignal.timeout(5000) }).catch(() => {});
   },
 };
